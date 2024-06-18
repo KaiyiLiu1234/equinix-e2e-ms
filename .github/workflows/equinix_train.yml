@@ -1,0 +1,84 @@
+name: Equinix Model Training Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      kubeconfig_file:
+        description: 'Equinix Kubeconfig File for the Model Training Cluster'
+        required: true
+        default: 'kubeconfig-9489325180'
+      kepler_operator_img:
+        description: ''
+        required: true
+        default: 'quay.io/sustainable_computing_io/kepler-operator:latest'
+      kepler_model_server_img:
+        description: ''
+        required: true
+        default: 'quay.io/sustainable_computing_io/kepler_model_server:v0.7'
+
+jobs:
+  Run-Training:
+    name: "Run Training"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3 
+
+      - name: Make Commands executable
+        run: | 
+          chmod +x commands/*
+      # may not need jq
+      - name: Install git and jq
+        run: |
+          sudo apt-get update
+          sudo apt-get install git jq -y
+
+      - name: Install Kubectl
+        run: ./commands/install_kubectl_perm.sh
+
+      - name: Install Tekton 
+        run: kubectl apply --filename https://storage.googleapis.com/tekton-releases/pipeline/latest/release.yaml
+
+      - name: mkdir ~/.kube
+        run: |
+          mkdir -p ~/.kube
+
+      - name: Download kubeconfig
+        uses: actions/download-artifact@v2
+        with:
+          # TODO: rename according to run_id 
+          name: ${{ github.event.inputs.kubeconfig_file }}
+          path: ~/.kube/
+
+      - name: Clone current repo
+        run: |
+          cd ~
+          git clone https://github.com/KaiyiLiu1234/equinix-e2e-ms
+
+      - name: Clone Kepler Operator
+        run: |
+          cd ~
+          git clone ${{ github.event.inputs.kepler_operator_img }}
+
+      - name: Deploy Kepler Operator
+        # TODO: 
+        run: |
+          cd ~/kepler-operator
+          make deploy OPERATOR_IMG=${{ github.event.inputs.kepler_operator_img }}
+          kubectl apply -k config/samples/
+      
+      # Wait?
+
+      - name: Clone Kepler Model Server
+        run: |
+          cd ~
+          git clone ${{ github.event.inputs.kepler_model_server_img }}
+      
+      # Deploy Tekton Training (install prereqs and apply)
+      # Raise issues on complete training?
+      # Upload Models as artifacts
+
+      
+
+      
