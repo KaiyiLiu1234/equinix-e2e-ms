@@ -1,0 +1,33 @@
+name: Equinix Complete Validation Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      kubeconfig_file:
+        description: 'Equinix Kubeconfig File for the Model Training Cluster'
+        required: true
+        default: 'kubeconfig-9489325180'
+      kepler_operator_img:
+        description: ''
+        required: true
+        default: 'quay.io/sustainable_computing_io/kepler-operator:latest'
+      kepler_model_server_img:
+        description: ''
+        required: true
+        default: 'quay.io/sustainable_computing_io/kepler_model_server:v0.7'
+      
+
+jobs:
+  Basic-Validation:
+    name: "Basic Model Validation"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3 
+      
+      # download Model Artifacts
+
+  VM-Validation:
+
+      

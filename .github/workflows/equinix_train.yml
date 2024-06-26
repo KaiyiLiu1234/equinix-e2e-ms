@@ -15,11 +15,15 @@ on:
         description: ''
         required: true
         default: 'quay.io/sustainable_computing_io/kepler_model_server:v0.7'
+      
 
 jobs:
   Run-Training:
     name: "Run Training"
     runs-on: ubuntu-latest
+
+    env:
+      TEKTON_PATH: '~/kepler-model-server/model-training/tekton'
 
     steps:
       - name: Checkout Code
@@ -35,7 +39,7 @@ jobs:
           sudo apt-get install git jq -y
 
       - name: Install Kubectl
-        run: ./commands/install_kubectl_perm.sh
+        run: ./commands/install_kubectl_perm.sh # this likely does not exist. need to clone the equnix repo
 
       - name: Install Tekton 
         run: kubectl apply --filename https://storage.googleapis.com/tekton-releases/pipeline/latest/release.yaml
@@ -62,23 +66,43 @@ jobs:
           git clone ${{ github.event.inputs.kepler_operator_img }}
 
       - name: Deploy Kepler Operator
-        # TODO: 
+        # TODO: use my own manifests
         run: |
           cd ~/kepler-operator
           make deploy OPERATOR_IMG=${{ github.event.inputs.kepler_operator_img }}
           kubectl apply -k config/samples/
       
-      # Wait?
-
       - name: Clone Kepler Model Server
         run: |
           cd ~
           git clone ${{ github.event.inputs.kepler_model_server_img }}
-      
-      # Deploy Tekton Training (install prereqs and apply)
-      # Raise issues on complete training?
-      # Upload Models as artifacts
 
+      # Deploy Tekton Training Resources
+      - name: Deploy Tektok Training Tasks
+        run: |
+          kubectl apply -f ${TEKTON_PATH}/pvc/hostpath.yaml
+          kubectl apply -f ${TEKTON_PATH}/tasks
+          kubectl apply -f ${TEKTON_PATH}/tasks/s3
+          kubectl apply -f ${TEKTON_PATH}/pipelines
+
+      - name: Run Complete Training
+        run: kubectl apply -f ${TEKTON_PATH}/examples/complete-pipelinerun.yaml
+      
+      - name: Deploy Inspector Pod
+        run : |
+          kubectl apply -f manifests/inspector-pod.yaml
+          kubectl wait --for=condition=complete --timeout=90s pod/inspector-pod
+          kubectl cp inspector-pod:/mnt/trained_models.tar.gz ~/trained_models.tar.gz
+
+        # this won't work must utilize current repo
+
+      # Upload Models as artifacts
+      - name: Upload models as artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: trained_models
+          path: ~/trained_models.tar.gz
+          retention-days: 30
       
 
       
